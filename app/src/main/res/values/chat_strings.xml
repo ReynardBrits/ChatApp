@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Login and registration -->
+    <string name="login_title">Welcome back</string>
+    <string name="login_subtitle">Sign in to continue your conversations.</string>
+    <string name="register_title">Create an account</string>
+    <string name="register_subtitle">Choose a username and password to get started.</string>
+
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm password</string>
+
+    <string name="login">Log in</string>
+    <string name="register">Register</string>
+    <string name="create_account">Create an account</string>
+    <string name="back_to_login">Back to login</string>
+
+    <!-- Home screen -->
+    <string name="welcome_user">Welcome, %1$s!</string>
+    <string name="home_subtitle">Choose someone to start a conversation.</string>
+    <string name="choose_user">Send a message to</string>
+    <string name="conversations">Open conversation</string>
+    <string name="camera_share">Take and share a photo</string>
+    <string name="logout">Log out</string>
+    <string name="home">Home</string>
+    <string name="no_users">No other accounts on this device yet. Log out and register a second account, then log back in.</string>
+
+    <!-- Conversation screen -->
+    <string name="chat_with">Chat with %1$s</string>
+    <string name="type_message">Type a message</string>
+    <string name="send">Send</string>
+    <string name="camera">Camera</string>
+    <string name="you">You</string>
+    <string name="shared_photo">Photo shared in this conversation</string>
+    <string name="empty_conversation">No messages yet. Say hello!</string>
+
+    <!-- Information -->
+    <string name="local_notice">Local Android demo: accounts, messages and photos stay on this device.</string>
+    <string name="camera_notice">A captured photo is sent after you confirm it in the camera app.</string>
+
+    <!-- Validation and feedback -->
+    <string name="enter_username">Enter your username.</string>
+    <string name="enter_password">Enter your password.</string>
+    <string name="invalid_login">Invalid username or password.</string>
+    <string name="login_failed">Unable to log in. Please try again.</string>
+
+    <string name="username_rule">Use 3–24 letters, numbers or underscores. Usernames are case-insensitive.</string>
+    <string name="password_rule">Use a password with 8–128 characters.</string>
+    <string name="password_mismatch">The passwords do not match.</string>
+    <string name="username_taken">This username is already registered.</string>
+    <string name="registration_success">Registration successful. You can now log in.</string>
+    <string name="registration_failed">Unable to register. Please try again.</string>
+
+    <string name="invalid_receiver">Choose a valid recipient from the home screen.</string>
+    <string name="enter_message">Enter a message first.</string>
+    <string name="message_too_long">Messages can contain up to 2,000 characters.</string>
+    <string name="message_failed">The message could not be saved. Please try again.</string>
+    <string name="conversation_failed">Unable to open this conversation. Please try again.</string>
+
+    <string name="no_camera">No camera app is available on this device.</string>
+    <string name="camera_failed">Unable to open the camera. Please try again.</string>
+
+</resources>
