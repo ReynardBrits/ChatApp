@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.ChatApp.Light"
+        parent="Theme.MaterialComponents.Light.NoActionBar">
+
+        <item name="colorPrimary">@color/chat_primary</item>
+        <item name="colorPrimaryVariant">@color/chat_primary_dark</item>
+        <item name="colorOnPrimary">@color/chat_surface</item>
+
+        <item name="colorSecondary">@color/chat_primary</item>
+        <item name="colorOnSecondary">@color/chat_surface</item>
+
+        <item name="colorSurface">@color/chat_surface</item>
+        <item name="colorOnSurface">@color/chat_text_primary</item>
+
+        <item name="android:colorBackground">@color/chat_background</item>
+        <item name="colorOnBackground">@color/chat_text_primary</item>
+        <item name="android:windowBackground">@color/chat_background</item>
+
+    </style>
+
+</resources>
