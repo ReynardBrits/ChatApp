@@ -1,7 +1,9 @@
 package com.example.chatapp.server;
 
 import org.apache.catalina.Context;
+import org.apache.catalina.Wrapper;
 import org.apache.catalina.session.StandardManager;
+import org.apache.catalina.servlets.DefaultServlet;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.tomcat.util.http.Rfc6265CookieProcessor;
 
@@ -17,13 +19,15 @@ public final class ChatServer {
 
     private static final int PORT = 8081;
 
-    private ChatServer() {
-    }
+    private ChatServer() {}
 
     public static void main(String[] args) throws Exception {
         ServerDatabase database = new ServerDatabase(Path.of("data"));
+        ChatHub hub = new ChatHub();
 
-        Path runtimeDirectory = Path.of("target", "tomcat").toAbsolutePath();
+        Path runtimeDirectory = Path.of("target", "tomcat")
+                .toAbsolutePath();
+
         Path webRoot = runtimeDirectory.resolve("webroot");
         Files.createDirectories(webRoot);
 
@@ -33,25 +37,52 @@ public final class ChatServer {
         tomcat.getConnector();
 
         Context context = tomcat.addContext("", webRoot.toString());
-        context.setParentClassLoader(ChatServer.class.getClassLoader());
+
+        context.setParentClassLoader(
+                ChatServer.class.getClassLoader()
+        );
 
         context.getServletContext().setAttribute(
                 ServerDatabase.class.getName(),
                 database
         );
 
-        // Configure the cookie used to identify logged-in clients.
+        context.getServletContext().setAttribute(
+                ChatHub.class.getName(),
+                hub
+        );
+
         context.setSessionCookieName("CHATAPPSESSION");
         context.setUseHttpOnly(true);
 
-        Rfc6265CookieProcessor cookies = new Rfc6265CookieProcessor();
+        Rfc6265CookieProcessor cookies =
+                new Rfc6265CookieProcessor();
+
         cookies.setSameSiteCookies("lax");
         context.setCookieProcessor(cookies);
 
-        // Keep login sessions in memory.
         StandardManager sessions = new StandardManager();
         sessions.setPathname(null);
         context.setManager(sessions);
+
+        Wrapper defaultServlet = Tomcat.addServlet(
+                context,
+                "default",
+                new DefaultServlet()
+        );
+
+        defaultServlet.setLoadOnStartup(1);
+        defaultServlet.setAsyncSupported(true);
+        defaultServlet.addInitParameter("listings", "false");
+        defaultServlet.addInitParameter("readonly", "true");
+
+        context.addServletMappingDecoded("/", "default");
+        context.addWelcomeFile("index.html");
+
+        context.addServletContainerInitializer(
+                new ChatSocketInitializer(),
+                null
+        );
 
         HttpServlet healthServlet = new HttpServlet() {
             @Override
@@ -59,21 +90,61 @@ public final class ChatServer {
                     HttpServletRequest request,
                     HttpServletResponse response
             ) throws IOException {
+
                 response.setContentType("application/json");
                 response.setCharacterEncoding("UTF-8");
                 response.setHeader("Cache-Control", "no-store");
-                response.getWriter().write("{\"status\":\"ok\"}");
+
+                response.getWriter().write(
+                        "{\"status\":\"ok\"}"
+                );
             }
         };
 
         Tomcat.addServlet(context, "health", healthServlet);
         context.addServletMappingDecoded("/api/health", "health");
 
-        // Register the authentication servlet.
         Tomcat.addServlet(context, "auth", new AuthServlet())
                 .setLoadOnStartup(1);
 
         context.addServletMappingDecoded("/api/auth/*", "auth");
+
+        Tomcat.addServlet(context, "users", new UsersServlet())
+                .setLoadOnStartup(1);
+
+        context.addServletMappingDecoded("/api/users", "users");
+
+        Tomcat.addServlet(context, "messages", new MessagesServlet())
+                .setLoadOnStartup(1);
+
+        context.addServletMappingDecoded("/api/messages", "messages");
+
+        try {
+            tomcat.start();
+
+            if (!context.getState().isAvailable()
+                    || !tomcat.getConnector().getState().isAvailable()) {
+
+                throw new IllegalStateException(
+                        "ChatApp server failed to start. Check the errors above."
+                );
+            }
+
+        } catch (Exception startupFailure) {
+            try {
+                tomcat.stop();
+            } catch (Exception cleanupFailure) {
+                startupFailure.addSuppressed(cleanupFailure);
+            }
+
+            try {
+                tomcat.destroy();
+            } catch (Exception cleanupFailure) {
+                startupFailure.addSuppressed(cleanupFailure);
+            }
+
+            throw startupFailure;
+        }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
@@ -84,11 +155,18 @@ public final class ChatServer {
             }
         }, "chatapp-shutdown"));
 
-        tomcat.start();
-
-        System.out.println("Database ready: " + database.getDatabasePath());
         System.out.println(
-                "ChatApp server running: http://localhost:" + PORT + "/api/health"
+                "Database ready: " + database.getDatabasePath()
+        );
+
+        System.out.println(
+                "ChatApp server running: http://localhost:"
+                        + PORT + "/api/health"
+        );
+
+        System.out.println(
+                "WebSocket endpoint: ws://localhost:"
+                        + PORT + ChatSocketInitializer.SOCKET_PATH
         );
 
         tomcat.getServer().await();
