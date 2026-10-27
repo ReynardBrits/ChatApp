@@ -32,7 +32,7 @@ import androidx.room.PrimaryKey;
 public class Message {
 
     @PrimaryKey(autoGenerate = true)
-    private int id;
+    private long id;
 
     @NonNull
     private String sender = "";
@@ -48,11 +48,11 @@ public class Message {
     @Nullable
     private String imagePath;
 
-    public int getId() {
+    public long getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(long id) {
         this.id = id;
     }
 

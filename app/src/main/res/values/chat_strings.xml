@@ -24,7 +24,7 @@
     <string name="camera_share">Take and share a photo</string>
     <string name="logout">Log out</string>
     <string name="home">Home</string>
-    <string name="no_users">No other accounts on this device yet. Log out and register a second account, then log back in.</string>
+    <string name="no_users">No other registered accounts yet. Tap here to refresh.</string>
 
     <!-- Conversation screen -->
     <string name="chat_with">Chat with %1$s</string>
@@ -36,7 +36,7 @@
     <string name="empty_conversation">No messages yet. Say hello!</string>
 
     <!-- Information -->
-    <string name="local_notice">Local Android demo: accounts, messages and photos stay on this device.</string>
+    <string name="local_notice">Use the same server account to sign in on another device.</string>
     <string name="camera_notice">A captured photo is sent after you confirm it in the camera app.</string>
 
     <!-- Validation and feedback -->

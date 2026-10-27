@@ -1,6 +1,7 @@
 package com.example.chatapp.activities;
 
-import android.database.sqlite.SQLiteConstraintException;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
@@ -8,20 +9,31 @@ import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
-import androidx.annotation.StringRes;
+import androidx.core.content.ContextCompat;
 
 import com.example.chatapp.R;
-import com.example.chatapp.database.ChatDatabaseHelper;
-import com.example.chatapp.database.User;
+import com.example.chatapp.network.ApiException;
+import com.example.chatapp.network.AuthApi;
 import com.example.chatapp.utils.Constants;
-import com.example.chatapp.utils.PasswordHasher;
 import com.google.android.material.button.MaterialButton;
 
-import java.security.GeneralSecurityException;
+import java.io.IOException;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class RegisterActivity extends BaseActivity {
+
+    private static final String LOCAL_NETWORK_PERMISSION =
+            "android.permission.ACCESS_LOCAL_NETWORK";
+
+    private final AuthApi auth = new AuthApi();
+
+    private final ExecutorService networkExecutor =
+            Executors.newSingleThreadExecutor();
 
     private EditText usernameInput;
     private EditText passwordInput;
@@ -30,15 +42,36 @@ public class RegisterActivity extends BaseActivity {
     private MaterialButton backButton;
     private ProgressBar progress;
 
-    private ChatDatabaseHelper database;
     private boolean registering;
+    private boolean requestingPermission;
+
+    private final ActivityResultLauncher<String> permissionLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.RequestPermission(),
+                    granted -> {
+                        requestingPermission = false;
+
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+
+                        if (granted) {
+                            register();
+                        } else {
+                            Toast.makeText(
+                                    this,
+                                    "Allow Nearby devices access in the app "
+                                            + "permissions to connect to the chat server.",
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        }
+                    }
+            );
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setScreenLayout(R.layout.activity_register);
-
-        database = ChatDatabaseHelper.getInstance(this);
 
         usernameInput = findViewById(R.id.username);
         passwordInput = findViewById(R.id.password);
@@ -63,7 +96,7 @@ public class RegisterActivity extends BaseActivity {
     }
 
     private void register() {
-        if (registering) {
+        if (registering || requestingPermission) {
             return;
         }
 
@@ -99,39 +132,45 @@ public class RegisterActivity extends BaseActivity {
             return;
         }
 
+        if (Build.VERSION.SDK_INT >= 37
+                && ContextCompat.checkSelfPermission(
+                this,
+                LOCAL_NETWORK_PERMISSION
+        ) != PackageManager.PERMISSION_GRANTED) {
+
+            requestingPermission = true;
+            permissionLauncher.launch(LOCAL_NETWORK_PERMISSION);
+            return;
+        }
+
         setLoading(true);
 
-        // Database work and password hashing run off the UI thread.
-        ChatDatabaseHelper.databaseExecutor.execute(() -> {
+        networkExecutor.execute(() -> {
             try {
-                User existingUser = database.userDao()
-                        .getUserByUsername(username);
+                auth.register(username, password);
 
-                if (existingUser != null) {
-                    showResult(R.string.username_taken, false);
-                    return;
-                }
-
-                User user = new User();
-                user.setUsername(username);
-                user.setPassword(
-                        PasswordHasher.hashPassword(password)
+                showResult(
+                        getString(R.string.registration_success),
+                        true
                 );
-
-                database.userDao().insertUser(user);
-
-                showResult(R.string.registration_success, true);
-
-            } catch (SQLiteConstraintException exception) {
-                showResult(R.string.username_taken, false);
-
-            } catch (GeneralSecurityException | RuntimeException exception) {
-                showResult(R.string.registration_failed, false);
+            } catch (ApiException exception) {
+                showResult(exception.getMessage(), false);
+            } catch (IOException exception) {
+                showResult(
+                        "Could not confirm registration. Check your "
+                                + "connection, then try logging in.",
+                        false
+                );
+            } catch (RuntimeException exception) {
+                showResult(
+                        getString(R.string.registration_failed),
+                        false
+                );
             }
         });
     }
 
-    private void showResult(@StringRes int message, boolean success) {
+    private void showResult(String message, boolean success) {
         runOnUiThread(() -> {
             if (isFinishing() || isDestroyed()) {
                 return;
@@ -141,12 +180,15 @@ public class RegisterActivity extends BaseActivity {
 
             Toast.makeText(
                     RegisterActivity.this,
-                    message,
+                    message == null
+                            ? getString(R.string.registration_failed)
+                            : message,
                     Toast.LENGTH_LONG
             ).show();
 
             if (success) {
-                // Return to the login screen after registration.
+                passwordInput.setText("");
+                confirmPasswordInput.setText("");
                 finish();
             }
         });
@@ -162,5 +204,11 @@ public class RegisterActivity extends BaseActivity {
         usernameInput.setEnabled(!loading);
         passwordInput.setEnabled(!loading);
         confirmPasswordInput.setEnabled(!loading);
+    }
+
+    @Override
+    protected void onDestroy() {
+        networkExecutor.shutdown();
+        super.onDestroy();
     }
 }

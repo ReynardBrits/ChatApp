@@ -23,6 +23,7 @@ public final class ChatServer {
 
     public static void main(String[] args) throws Exception {
         ServerDatabase database = new ServerDatabase(Path.of("data"));
+        PhotoStorage photos = new PhotoStorage(Path.of("data", "photos"));
         ChatHub hub = new ChatHub();
 
         Path runtimeDirectory = Path.of("target", "tomcat")
@@ -45,6 +46,11 @@ public final class ChatServer {
         context.getServletContext().setAttribute(
                 ServerDatabase.class.getName(),
                 database
+        );
+
+        context.getServletContext().setAttribute(
+                PhotoStorage.class.getName(),
+                photos
         );
 
         context.getServletContext().setAttribute(
@@ -119,6 +125,11 @@ public final class ChatServer {
 
         context.addServletMappingDecoded("/api/messages", "messages");
 
+        Tomcat.addServlet(context, "photos", new PhotosServlet())
+                .setLoadOnStartup(1);
+
+        context.addServletMappingDecoded("/api/photos/*", "photos");
+
         try {
             tomcat.start();
 
@@ -167,6 +178,11 @@ public final class ChatServer {
         System.out.println(
                 "WebSocket endpoint: ws://localhost:"
                         + PORT + ChatSocketInitializer.SOCKET_PATH
+        );
+
+        System.out.println(
+                "Photo endpoint: http://localhost:"
+                        + PORT + "/api/photos"
         );
 
         tomcat.getServer().await();
