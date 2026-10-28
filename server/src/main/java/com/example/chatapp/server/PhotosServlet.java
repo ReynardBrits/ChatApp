@@ -165,6 +165,13 @@ public final class PhotosServlet extends JsonServlet {
 
         String name = path.substring(1);
 
+        if (name.contains("..")
+                || name.contains("/")
+                || name.contains("\\")) {
+            writeError(response, 404, "Photo not found.");
+            return;
+        }
+
         try {
             Path file = storage.resolve(name);
 
@@ -183,10 +190,8 @@ public final class PhotosServlet extends JsonServlet {
             response.setContentLengthLong(Files.size(file));
             response.setHeader("Cache-Control", "private, no-store");
             response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader(
-                    "Content-Disposition",
-                    "inline; filename=\"" + name + "\""
-            );
+            response.setHeader("Content-Disposition", "inline");
+
 
             Files.copy(file, response.getOutputStream());
 
