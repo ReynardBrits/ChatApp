@@ -3,23 +3,24 @@ package com.example.chatapp.activities;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.ArrayAdapter;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.DividerItemDecoration;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.chatapp.R;
-import com.example.chatapp.database.ChatDatabaseHelper;
-import com.example.chatapp.database.User;
+import com.example.chatapp.adapters.ConversationAdapter;
 import com.example.chatapp.network.ApiAccount;
-import com.example.chatapp.network.ApiException;
 import com.example.chatapp.network.AuthApi;
-import com.example.chatapp.network.UsersApi;
 import com.example.chatapp.utils.Constants;
 import com.example.chatapp.utils.SessionManager;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,27 +30,27 @@ import java.util.concurrent.Executors;
 
 public class HomeActivity extends BaseActivity {
 
-    private final AuthApi auth = new AuthApi();
-    private final UsersApi usersApi = new UsersApi();
-
-    private final ExecutorService networkExecutor =
+    private final ExecutorService logoutWorker =
             Executors.newSingleThreadExecutor();
 
+    private final AuthApi auth = new AuthApi();
+
     private SessionManager sessionManager;
-    private ChatDatabaseHelper database;
     private ApiAccount currentAccount;
+    private HomeViewModel viewModel;
+    private HomeViewModel.UiState uiState;
+    private ConversationAdapter adapter;
 
-    private Spinner usersSpinner;
-    private ArrayAdapter<User> usersAdapter;
-    private MaterialButton conversationButton;
-    private MaterialButton cameraButton;
+    private TextView statusText;
+    private TextView emptyText;
+    private View progress;
+    private MaterialButton newChatButton;
+    private MaterialButton refreshButton;
     private MaterialButton logoutButton;
-    private TextView noUsersText;
+    private AlertDialog userDialog;
 
-    private boolean refreshing;
     private boolean loggingOut;
     private boolean leaving;
-    private String loadError;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -62,291 +63,188 @@ public class HomeActivity extends BaseActivity {
             return;
         }
 
-        currentAccount = new ApiAccount(
-                sessionManager.getUserId(),
-                sessionManager.getUsername()
-        );
-
         setScreenLayout(R.layout.activity_home);
 
-        TextView welcomeText = findViewById(R.id.welcome);
-        usersSpinner = findViewById(R.id.users_spinner);
-        conversationButton = findViewById(R.id.btn_conversations);
-        cameraButton = findViewById(R.id.btn_camera);
+        try {
+            viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
+            currentAccount = viewModel.getCurrentAccount();
+        } catch (RuntimeException exception) {
+            showToast("Unable to open Home. Please sign in again.");
+            returnToLogin();
+            return;
+        }
+
+        TextView welcome = findViewById(R.id.welcome);
+        RecyclerView list = findViewById(R.id.conversation_list);
+        statusText = findViewById(R.id.home_status);
+        emptyText = findViewById(R.id.empty_conversations);
+        progress = findViewById(R.id.home_progress);
+        newChatButton = findViewById(R.id.btn_new_chat);
+        refreshButton = findViewById(R.id.btn_refresh);
         logoutButton = findViewById(R.id.btn_logout);
-        noUsersText = findViewById(R.id.no_users);
 
-        welcomeText.setText(
-                getString(
-                        R.string.welcome_user,
-                        currentAccount.getUsername()
-                )
+        welcome.setText(getString(
+                R.string.welcome_user,
+                currentAccount.getUsername()
+        ));
+
+        adapter = new ConversationAdapter(
+                currentAccount.getUsername(),
+                this::openConversation
         );
 
-        usersAdapter = new ArrayAdapter<>(
+        list.setLayoutManager(new LinearLayoutManager(this));
+        list.setAdapter(adapter);
+        list.addItemDecoration(new DividerItemDecoration(
                 this,
-                android.R.layout.simple_spinner_item,
-                new ArrayList<>()
-        );
+                DividerItemDecoration.VERTICAL
+        ));
 
-        usersAdapter.setDropDownViewResource(
-                android.R.layout.simple_spinner_dropdown_item
-        );
+        newChatButton.setOnClickListener(view -> chooseUser());
 
-        usersSpinner.setAdapter(usersAdapter);
-
-        conversationButton.setOnClickListener(
-                view -> openConversation(false)
-        );
-
-        cameraButton.setOnClickListener(
-                view -> openConversation(true)
-        );
+        refreshButton.setOnClickListener(view -> {
+            if (checkSession()) {
+                viewModel.refresh();
+            }
+        });
 
         logoutButton.setOnClickListener(view -> logout());
 
-        noUsersText.setOnClickListener(view -> refreshUsers());
-        noUsersText.setFocusable(true);
-
-        try {
-            database = ChatDatabaseHelper.getInstance(this);
-        } catch (IllegalStateException exception) {
-            returnToLogin();
-            return;
-        }
-
-        database.userDao()
-                .getOtherUsers(currentAccount.getId())
-                .observe(this, this::updateUsers);
-
-        updateControls();
+        viewModel.getState().observe(this, this::render);
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    protected void onStart() {
+        super.onStart();
 
-        if (database != null && canUpdateScreen()) {
-            refreshUsers();
+        if (viewModel != null && checkSession()) {
+            viewModel.start();
         }
     }
 
-    private void refreshUsers() {
-        if (!canUpdateScreen() || refreshing) {
+    @Override
+    protected void onStop() {
+        dismissUserDialog();
+
+        if (viewModel != null) {
+            viewModel.stop();
+        }
+
+        super.onStop();
+    }
+
+    private void render(HomeViewModel.UiState state) {
+        if (!canUpdateUi()) {
             return;
         }
 
-        if (!sameAccount()) {
+        uiState = state;
+
+        if (!loggingOut && (state.sessionExpired || !sameAccount())) {
             returnToLogin();
             return;
         }
 
-        refreshing = true;
-        loadError = null;
-        updateControls();
+        adapter.setConversations(state.conversations);
 
-        networkExecutor.execute(() -> {
-            try {
-                List<ApiAccount> accounts = usersApi.getOtherUsers();
-                List<User> cachedUsers = new ArrayList<>();
-
-                // Keep the signed-in user for message foreign keys.
-                cachedUsers.add(toCachedUser(currentAccount));
-
-                for (ApiAccount account : accounts) {
-                    cachedUsers.add(toCachedUser(account));
-                }
-
-                if (!sameAccount()) {
-                    runOnUiThread(() -> {
-                        if (canUpdateScreen()) {
-                            returnToLogin();
-                        }
-                    });
-                    return;
-                }
-
-                database.userDao().upsertUsers(cachedUsers);
-
-                runOnUiThread(() -> {
-                    if (!canUpdateScreen()) {
-                        return;
-                    }
-
-                    refreshing = false;
-
-                    if (!sameAccount()) {
-                        returnToLogin();
-                        return;
-                    }
-
-                    updateControls();
-                });
-            } catch (ApiException exception) {
-                showRefreshError(
-                        exception.getMessage(),
-                        exception.isUnauthorized()
-                );
-            } catch (IOException exception) {
-                showRefreshError(
-                        "Could not refresh users. Check your connection.",
-                        false
-                );
-            } catch (RuntimeException exception) {
-                showRefreshError(
-                        "Could not update saved accounts. Please try again.",
-                        false
-                );
-            }
-        });
-    }
-
-    private static User toCachedUser(ApiAccount account) {
-        User user = new User();
-        user.setId(account.getId());
-        user.setUsername(account.getUsername());
-        return user;
-    }
-
-    private void updateUsers(List<User> users) {
-        if (!canUpdateScreen()) {
-            return;
-        }
-
-        User selected = (User) usersSpinner.getSelectedItem();
-
-        String selectedUsername = selected == null
-                ? null
-                : selected.getUsername();
-
-        usersAdapter.clear();
-
-        if (users != null) {
-            usersAdapter.addAll(users);
-        }
-
-        if (selectedUsername != null) {
-            for (int index = 0; index < usersAdapter.getCount(); index++) {
-                User user = usersAdapter.getItem(index);
-
-                if (user != null
-                        && selectedUsername.equals(user.getUsername())) {
-                    usersSpinner.setSelection(index);
-                    break;
-                }
-            }
-        }
-
-        updateControls();
-    }
-
-    private void updateControls() {
-        boolean hasUsers = usersAdapter.getCount() > 0;
-        boolean canChat = hasUsers && !loggingOut && sameAccount();
-
-        usersSpinner.setEnabled(canChat);
-        conversationButton.setEnabled(canChat);
-        cameraButton.setEnabled(canChat);
-        logoutButton.setEnabled(!loggingOut);
-
-        noUsersText.setVisibility(
-                hasUsers ? View.GONE : View.VISIBLE
+        progress.setVisibility(
+                state.refreshing ? View.VISIBLE : View.INVISIBLE
         );
 
-        if (!hasUsers) {
-            if (refreshing) {
-                noUsersText.setText("Loading users…");
-            } else if (loadError != null) {
-                noUsersText.setText(loadError + " Tap here to retry.");
-            } else {
-                noUsersText.setText(R.string.no_users);
-            }
-        }
+        statusText.setVisibility(
+                state.error == null ? View.GONE : View.VISIBLE
+        );
+        statusText.setText(state.error == null ? "" : state.error);
+
+        emptyText.setVisibility(
+                state.conversations.isEmpty()
+                        && !state.refreshing
+                        && state.error == null
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+
+        newChatButton.setEnabled(
+                !loggingOut
+                        && (!state.users.isEmpty() || !state.refreshing)
+        );
+        refreshButton.setEnabled(!loggingOut && !state.refreshing);
+        logoutButton.setEnabled(!loggingOut);
+        logoutButton.setText(
+                loggingOut ? "Logging out…" : getString(R.string.logout)
+        );
     }
 
-    private void showRefreshError(String message, boolean unauthorized) {
-        runOnUiThread(() -> {
-            if (!canUpdateScreen()) {
-                return;
-            }
-
-            refreshing = false;
-
-            if (unauthorized || !sameAccount()) {
-                returnToLogin();
-                return;
-            }
-
-            loadError = message == null
-                    ? "Could not load users."
-                    : message;
-
-            updateControls();
-
-            if (usersAdapter.getCount() > 0) {
-                Toast.makeText(
-                        this,
-                        loadError,
-                        Toast.LENGTH_LONG
-                ).show();
-            }
-        });
-    }
-
-    private void openConversation(boolean openCamera) {
-        if (!canUpdateScreen()) {
+    private void chooseUser() {
+        if (!checkSession() || uiState == null || userDialog != null) {
             return;
         }
 
-        if (!sameAccount()) {
-            returnToLogin();
+        List<ApiAccount> options = new ArrayList<>(uiState.users);
+
+        if (options.isEmpty()) {
+            showToast(
+                    "No other accounts yet. Register another user, then tap Refresh."
+            );
             return;
         }
 
-        User recipient = (User) usersSpinner.getSelectedItem();
+        String[] names = new String[options.size()];
 
-        if (recipient == null
-                || recipient.getId() == currentAccount.getId()
+        for (int index = 0; index < options.size(); index++) {
+            names[index] = options.get(index).getUsername();
+        }
+
+        userDialog = new MaterialAlertDialogBuilder(this)
+                .setTitle("New chat")
+                .setItems(names, (dialog, which) ->
+                        openConversation(options.get(which))
+                )
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+
+        userDialog.setOnDismissListener(dialog -> userDialog = null);
+        userDialog.show();
+    }
+
+    private void openConversation(ApiAccount recipient) {
+        if (!checkSession()) {
+            return;
+        }
+
+        if (recipient.getId() == currentAccount.getId()
                 || recipient.getUsername().equals(
                 currentAccount.getUsername()
         )) {
-            Toast.makeText(
-                    this,
-                    R.string.invalid_receiver,
-                    Toast.LENGTH_SHORT
-            ).show();
+            showToast(getString(R.string.invalid_receiver));
             return;
         }
 
         Intent intent = new Intent(this, ConversationActivity.class);
-
-        intent.putExtra(
-                Constants.EXTRA_RECEIVER,
-                recipient.getUsername()
-        );
-
-        intent.putExtra(Constants.EXTRA_OPEN_CAMERA, openCamera);
-
+        intent.putExtra(Constants.EXTRA_RECEIVER, recipient.getUsername());
+        intent.putExtra(Constants.EXTRA_OPEN_CAMERA, false);
         startActivity(intent);
     }
 
     private void logout() {
-        if (!canUpdateScreen()) {
+        if (!checkSession()) {
             return;
         }
 
         loggingOut = true;
-        logoutButton.setText("Logging out…");
-        updateControls();
+        dismissUserDialog();
+        viewModel.stop();
 
-        networkExecutor.execute(() -> {
+        logoutWorker.execute(() -> {
             try {
-                auth.logout();
+                if (sameAccount()) {
+                    auth.logout();
+                }
             } catch (IOException | RuntimeException ignored) {
                 // AuthApi clears the cookie even if the request fails.
             } finally {
                 runOnUiThread(() -> {
-                    if (!isFinishing() && !isDestroyed()) {
+                    if (canUpdateUi()) {
                         returnToLogin();
                     }
                 });
@@ -355,18 +253,25 @@ public class HomeActivity extends BaseActivity {
     }
 
     private boolean sameAccount() {
-        return sessionManager.isLoggedIn()
+        return currentAccount != null
+                && sessionManager.isLoggedIn()
                 && sessionManager.getUserId() == currentAccount.getId()
                 && currentAccount.getUsername().equals(
                 sessionManager.getUsername()
         );
     }
 
-    private boolean canUpdateScreen() {
-        return !isFinishing()
-                && !isDestroyed()
-                && !leaving
-                && !loggingOut;
+    private boolean checkSession() {
+        if (!canUpdateUi() || loggingOut) {
+            return false;
+        }
+
+        if (!sameAccount()) {
+            returnToLogin();
+            return false;
+        }
+
+        return true;
     }
 
     private void returnToLogin() {
@@ -375,22 +280,54 @@ public class HomeActivity extends BaseActivity {
         }
 
         leaving = true;
+
+        if (viewModel != null) {
+            viewModel.stop();
+        }
+
+        // An older screen must not clear a different account's session.
+        if (currentAccount != null
+                && sessionManager.getUserId() > 0
+                && (sessionManager.getUserId() != currentAccount.getId()
+                || !currentAccount.getUsername().equals(
+                sessionManager.getUsername()
+        ))) {
+            finish();
+            return;
+        }
+
         sessionManager.clearSession();
 
         Intent intent = new Intent(this, LoginActivity.class);
-
         intent.addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK
                         | Intent.FLAG_ACTIVITY_CLEAR_TASK
         );
-
         startActivity(intent);
         finish();
     }
 
+    private boolean canUpdateUi() {
+        return !leaving && !isFinishing() && !isDestroyed();
+    }
+
+    private void showToast(String message) {
+        if (canUpdateUi()) {
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void dismissUserDialog() {
+        if (userDialog != null) {
+            userDialog.dismiss();
+            userDialog = null;
+        }
+    }
+
     @Override
     protected void onDestroy() {
-        networkExecutor.shutdown();
+        dismissUserDialog();
+        logoutWorker.shutdown();
         super.onDestroy();
     }
 }

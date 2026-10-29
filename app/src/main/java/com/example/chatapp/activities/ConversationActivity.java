@@ -35,6 +35,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import android.view.ViewTreeObserver;
+import androidx.lifecycle.Lifecycle;
 
 public class ConversationActivity extends BaseActivity {
 
@@ -45,6 +47,11 @@ public class ConversationActivity extends BaseActivity {
     private RecyclerView recyclerView;
     private LinearLayoutManager layoutManager;
     private MessageAdapter adapter;
+
+    private final ViewTreeObserver.OnPreDrawListener readObserver = () -> {
+        markVisibleMessagesRead();
+        return true;
+    };
 
     private TextView title;
     private TextView emptyText;
@@ -130,6 +137,9 @@ public class ConversationActivity extends BaseActivity {
 
         recyclerView.setLayoutManager(layoutManager);
         recyclerView.setAdapter(adapter);
+        recyclerView.getViewTreeObserver()
+                .addOnPreDrawListener(readObserver);
+
 
         title.setMaxLines(4);
         title.setFocusable(true);
@@ -248,6 +258,10 @@ public class ConversationActivity extends BaseActivity {
     protected void onPostResume() {
         super.onPostResume();
 
+        if (recyclerView != null) {
+            recyclerView.invalidate();
+        }
+
         if (autoOpenCamera
                 && pendingPhotoPath == null
                 && viewModel != null
@@ -263,6 +277,52 @@ public class ConversationActivity extends BaseActivity {
 
         if (viewModel != null) {
             viewModel.stop();
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+
+        if (hasFocus && recyclerView != null) {
+            recyclerView.invalidate();
+        }
+    }
+
+    private void markVisibleMessagesRead() {
+        if (!canUpdateUi()
+                || viewModel == null
+                || recyclerView == null
+                || pendingPhotoPath != null
+                || !getLifecycle().getCurrentState().isAtLeast(
+                Lifecycle.State.RESUMED
+        )
+                || !recyclerView.hasWindowFocus()
+                || !recyclerView.isShown()
+                || recyclerView.hasPendingAdapterUpdates()) {
+            return;
+        }
+
+        int first = layoutManager.findFirstVisibleItemPosition();
+        int last = layoutManager.findLastVisibleItemPosition();
+
+        if (first == RecyclerView.NO_POSITION
+                || last == RecyclerView.NO_POSITION) {
+            return;
+        }
+
+        int end = Math.min(last, adapter.getItemCount() - 1);
+        long throughId = 0;
+
+        for (int position = first; position <= end; position++) {
+            throughId = Math.max(
+                    throughId,
+                    adapter.getItemId(position)
+            );
+        }
+
+        if (throughId > 0) {
+            viewModel.markReadThrough(throughId);
         }
     }
 
@@ -537,6 +597,14 @@ public class ConversationActivity extends BaseActivity {
 
     @Override
     protected void onDestroy() {
+        if (recyclerView != null) {
+            ViewTreeObserver observer = recyclerView.getViewTreeObserver();
+
+            if (observer.isAlive()) {
+                observer.removeOnPreDrawListener(readObserver);
+            }
+        }
+
         if (isFinishing()) {
             deletePhoto(pendingPhotoPath);
             pendingPhotoPath = null;

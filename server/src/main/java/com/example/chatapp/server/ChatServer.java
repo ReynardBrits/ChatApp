@@ -130,6 +130,14 @@ public final class ChatServer {
 
         context.addServletMappingDecoded("/api/photos/*", "photos");
 
+        Tomcat.addServlet(context, "conversations", new ConversationsServlet())
+                .setLoadOnStartup(1);
+
+        context.addServletMappingDecoded(
+                "/api/conversations/*",
+                "conversations"
+        );
+
         Wrapper pagesServlet = Tomcat.addServlet(
                 context,
                 "pages",

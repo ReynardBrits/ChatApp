@@ -90,6 +90,27 @@ public final class ServerDatabase {
                     CREATE INDEX IF NOT EXISTS idx_messages_receiver
                     ON messages(receiver)
                     """);
+
+            statement.executeUpdate("""
+        CREATE TABLE IF NOT EXISTS conversation_reads (
+            username TEXT NOT NULL,
+            other_username TEXT NOT NULL,
+            last_read_message_id INTEGER NOT NULL DEFAULT 0,
+
+            PRIMARY KEY (username, other_username),
+
+            FOREIGN KEY (username)
+                REFERENCES users(username)
+                ON DELETE RESTRICT,
+
+            FOREIGN KEY (other_username)
+                REFERENCES users(username)
+                ON DELETE RESTRICT,
+
+            CHECK (username <> other_username),
+            CHECK (last_read_message_id >= 0)
+        )
+        """);
         }
     }
 }

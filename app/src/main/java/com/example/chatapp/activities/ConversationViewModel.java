@@ -23,8 +23,21 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import com.example.chatapp.network.ConversationsApi;
 
 public final class ConversationViewModel extends ViewModel {
+
+    private final ConversationsApi conversationsApi = new ConversationsApi();
+
+    private final ExecutorService readWorker =
+            Executors.newSingleThreadExecutor();
+
+    // Main thread writes this; the read worker checks the latest value.
+    private volatile long requestedReadId;
+
+    // Accessed only by the read worker.
+    private long confirmedReadId;
+    private long attemptedReadId;
 
     private final ConversationRepository repository;
     private final LiveData<List<Message>> messages;
@@ -170,6 +183,8 @@ public final class ConversationViewModel extends ViewModel {
             refreshAgain = true;
             return;
         }
+
+        queueReadUpdate(true);
 
         refreshing = true;
         publishState();
@@ -405,6 +420,52 @@ public final class ConversationViewModel extends ViewModel {
         });
     }
 
+    @MainThread
+    public void markReadThrough(long messageId) {
+        if (!active || messageId <= requestedReadId || !hasSession()) {
+            return;
+        }
+
+        requestedReadId = messageId;
+        queueReadUpdate(false);
+    }
+
+    private void queueReadUpdate(boolean retry) {
+        if (cleared || requestedReadId <= 0) {
+            return;
+        }
+
+        readWorker.execute(() -> {
+            long throughId = requestedReadId;
+
+            if (throughId <= confirmedReadId
+                    || (!retry && throughId <= attemptedReadId)) {
+                return;
+            }
+
+            attemptedReadId = throughId;
+
+            try {
+                if (!repository.isCurrentSession()) {
+                    throw new ApiException(401, "Please log in again.");
+                }
+
+                conversationsApi.markRead(
+                        repository.getReceiver(),
+                        throughId
+                );
+
+                confirmedReadId = throughId;
+            } catch (IOException | RuntimeException exception) {
+                onMain(() -> handleFailure(
+                        exception,
+                        "Could not update read status. "
+                                + "Tap the chat title to retry."
+                ));
+            }
+        });
+    }
+
     private void handleFailure(Exception exception, String fallback) {
         if (cleared || sessionExpired) {
             return;
@@ -481,6 +542,8 @@ public final class ConversationViewModel extends ViewModel {
 
         // Accepted sends finish and clean up their temporary photos.
         workers.shutdown();
+        readWorker.shutdown();
+
         mainHandler.removeCallbacksAndMessages(null);
 
         super.onCleared();
