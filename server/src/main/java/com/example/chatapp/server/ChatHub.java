@@ -107,6 +107,14 @@ public final class ChatHub {
         }
     }
 
+    public void broadcast(Object event) {
+        String json = GSON.toJson(event);
+
+        for (Client client : clients.values()) {
+            client.enqueue(json);
+        }
+    }
+
     public void disconnect(
             Session socket,
             CloseReason.CloseCode code,

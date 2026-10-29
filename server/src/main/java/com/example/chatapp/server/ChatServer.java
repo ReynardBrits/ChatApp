@@ -130,6 +130,34 @@ public final class ChatServer {
 
         context.addServletMappingDecoded("/api/photos/*", "photos");
 
+        Wrapper pagesServlet = Tomcat.addServlet(
+                context,
+                "pages",
+                new PageServlet()
+        );
+
+        pagesServlet.setLoadOnStartup(1);
+        pagesServlet.setAsyncSupported(true);
+
+        String[] browserRoutes = {
+                "",
+                "/login",
+                "/register",
+                "/home",
+                "/conversations",
+                "/camera",
+                "/room",
+                "/assets/app.css",
+                "/assets/app.js",
+                "/assets/conversations.js",
+                "/assets/camera.js",
+                "/assets/room.js"
+        };
+
+        for (String route : browserRoutes) {
+            context.addServletMappingDecoded(route, "pages");
+        }
+
         try {
             tomcat.start();
 

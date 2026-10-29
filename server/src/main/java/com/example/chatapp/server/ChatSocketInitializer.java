@@ -15,6 +15,7 @@ public final class ChatSocketInitializer
         implements ServletContainerInitializer {
 
     public static final String SOCKET_PATH = "/ws/chat";
+    public static final String ROOM_SOCKET_PATH = "/ws/room";
 
     @Override
     public void onStartup(
@@ -71,18 +72,33 @@ public final class ChatSocketInitializer
                 hub
         );
 
+        ServerEndpointConfig roomEndpoint = ServerEndpointConfig.Builder
+                .create(RoomSocketEndpoint.class, ROOM_SOCKET_PATH)
+                .configurator(new ChatSocketConfigurator())
+                .build();
+
+        roomEndpoint.getUserProperties().put(
+                RoomSocketEndpoint.HUB_PROPERTY,
+                new ChatHub()
+        );
+
         try {
             container.addEndpoint(endpoint);
+            container.addEndpoint(roomEndpoint);
 
         } catch (DeploymentException exception) {
             throw new ServletException(
-                    "Unable to register the chat WebSocket endpoint.",
+                    "Unable to register the chat WebSocket endpoints.",
                     exception
             );
         }
 
         context.log(
                 "Chat WebSocket endpoint registered at " + SOCKET_PATH
+        );
+
+        context.log(
+                "Live room WebSocket endpoint registered at " + ROOM_SOCKET_PATH
         );
     }
 }

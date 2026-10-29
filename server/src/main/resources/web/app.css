@@ -1,0 +1,418 @@
+:root {
+    color-scheme: light;
+    --background: #f4f6fb;
+    --surface: #ffffff;
+    --text: #1b263b;
+    --muted: #596579;
+    --border: #d7deea;
+    --primary: #3457cc;
+    --primary-hover: #2745aa;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+body {
+    margin: 0;
+    background: var(--background);
+    color: var(--text);
+    font: 16px/1.5 system-ui, "Segoe UI", Arial, sans-serif;
+}
+
+a {
+    color: var(--primary);
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 3px solid #91adff;
+    outline-offset: 3px;
+}
+
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 18px 24px;
+    background: #18243b;
+    color: white;
+}
+
+.brand {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 750;
+    text-decoration: none;
+}
+
+#main-nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+#main-nav a {
+    color: #e1e8ff;
+    text-decoration: none;
+}
+
+#main-nav a:hover {
+    text-decoration: underline;
+}
+
+.account-name {
+    color: white;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.container {
+    width: 100%;
+    max-width: 1000px;
+    margin: 32px auto;
+    padding: 0 16px 32px;
+}
+
+h1,
+h2 {
+    line-height: 1.25;
+}
+
+h1 {
+    margin: 0 0 16px;
+    font-size: 1.9rem;
+}
+
+h2 {
+    margin: 0 0 10px;
+    font-size: 1.25rem;
+}
+
+.auth-card {
+    max-width: 440px;
+    margin: 32px auto;
+    padding: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 8px 28px #18243b0d;
+}
+
+form {
+    display: grid;
+    gap: 10px;
+}
+
+label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    max-width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #bdc8d9;
+    border-radius: 8px;
+    background: white;
+    color: var(--text);
+}
+
+textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+small {
+    color: var(--muted);
+}
+
+button,
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+button:not(:disabled):hover,
+.button:hover {
+    background: var(--primary-hover);
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.button.secondary {
+    background: #e8edfc;
+    color: #283d85;
+}
+
+.button.secondary:hover {
+    background: #dce4fa;
+}
+
+#logout-button {
+    background: white;
+    color: #18243b;
+}
+
+#logout-button:hover {
+    background: #e5eafa;
+}
+
+.auth-card button {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.feature-card {
+    display: block;
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+}
+
+.feature-card:hover {
+    border-color: var(--primary);
+}
+
+.feature-card p {
+    margin-bottom: 0;
+    color: var(--muted);
+}
+
+.page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.page-heading h1 {
+    margin: 0;
+}
+
+.toolbar,
+.camera-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 16px 0;
+}
+
+.toolbar label {
+    margin: 0;
+}
+
+.toolbar select {
+    flex: 1;
+    min-width: 180px;
+}
+
+.notice {
+    padding: 12px 16px;
+    border: 1px solid #cbd8f2;
+    border-radius: 8px;
+    background: #eaf0fc;
+    color: #283d66;
+}
+
+.notice.error {
+    border-color: #efbcbc;
+    background: #fff0f0;
+    color: #842828;
+}
+
+.connection-status,
+.empty-state {
+    color: var(--muted);
+}
+
+.messages {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: clamp(260px, 50vh, 520px);
+    margin: 16px 0;
+    padding: 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #edf1f8;
+}
+
+.message {
+    align-self: flex-start;
+    flex-shrink: 0;
+    max-width: 85%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: white;
+    overflow-wrap: anywhere;
+}
+
+.message.own {
+    align-self: flex-end;
+    border-color: #c4d2ff;
+    background: #e4ebff;
+}
+
+.message-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.message-time {
+    white-space: nowrap;
+}
+
+.message-content {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.message-image {
+    display: block;
+    width: 260px;
+    max-width: 100%;
+    max-height: 320px;
+    margin-top: 8px;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
+.composer,
+.file-picker {
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.composer button {
+    justify-self: end;
+}
+
+#camera-user {
+    max-width: 440px;
+}
+
+.camera-preview,
+.photo-preview {
+    display: block;
+    width: 100%;
+    max-width: 640px;
+    height: auto;
+    margin: 16px 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #101723;
+    object-fit: contain;
+}
+
+.file-picker {
+    margin: 16px 0;
+}
+
+.file-picker input {
+    padding: 0;
+    border: 0;
+}
+
+@media (max-width: 640px) {
+    .app-header {
+        padding: 16px;
+    }
+
+    #main-nav {
+        width: 100%;
+        gap: 12px;
+    }
+
+    .container {
+        margin-top: 20px;
+    }
+
+    .auth-card {
+        margin: 20px auto;
+        padding: 20px;
+    }
+
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .toolbar label {
+        width: 100%;
+    }
+
+    .toolbar select {
+        min-width: 0;
+    }
+
+    .message {
+        max-width: 95%;
+    }
+
+    .composer button {
+        width: 100%;
+    }
+}
