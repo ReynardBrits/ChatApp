@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -21,6 +22,8 @@ import com.example.chatapp.utils.Constants;
 import com.example.chatapp.utils.SessionManager;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.example.chatapp.notifications.PushRegistrationManager;
+import com.example.chatapp.notifications.PushRegistrationStore;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,12 +31,35 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import android.Manifest;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
+
+import android.util.Log;
+import com.google.firebase.messaging.FirebaseMessaging;
+
 public class HomeActivity extends BaseActivity {
 
     private final ExecutorService logoutWorker =
             Executors.newSingleThreadExecutor();
 
     private final AuthApi auth = new AuthApi();
+
+    private final ActivityResultLauncher<String> notificationPermissionLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.RequestPermission(),
+                    granted -> showToast(
+                            granted
+                                    ? "Notifications enabled."
+                                    : "Notifications are off. You can enable them "
+                                    + "in Android settings."
+                    )
+            );
 
     private SessionManager sessionManager;
     private ApiAccount currentAccount;
@@ -111,6 +137,12 @@ public class HomeActivity extends BaseActivity {
         logoutButton.setOnClickListener(view -> logout());
 
         viewModel.getState().observe(this, this::render);
+
+        requestNotificationPermissionIfNeeded();
+
+        FirebaseMessaging.getInstance().register()
+                .addOnFailureListener(error ->
+                        Log.w("ChatPush", "Firebase registration failed.", error));
     }
 
     @Override
@@ -119,6 +151,7 @@ public class HomeActivity extends BaseActivity {
 
         if (viewModel != null && checkSession()) {
             viewModel.start();
+            PushRegistrationManager.getInstance(this).sync();
         }
     }
 
@@ -175,6 +208,33 @@ public class HomeActivity extends BaseActivity {
         );
     }
 
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                || !checkSession()) {
+            return;
+        }
+
+        SharedPreferences preferences = getSharedPreferences(
+                "chat_notification_permissions",
+                MODE_PRIVATE
+        );
+
+        if (preferences.getBoolean("asked", false)) {
+            return;
+        }
+
+        preferences.edit().putBoolean("asked", true).apply();
+
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+        ) != PackageManager.PERMISSION_GRANTED) {
+            notificationPermissionLauncher.launch(
+                    Manifest.permission.POST_NOTIFICATIONS
+            );
+        }
+    }
+
     private void chooseUser() {
         if (!checkSession() || uiState == null || userDialog != null) {
             return;
@@ -226,6 +286,7 @@ public class HomeActivity extends BaseActivity {
         startActivity(intent);
     }
 
+
     private void logout() {
         if (!checkSession()) {
             return;
@@ -235,10 +296,32 @@ public class HomeActivity extends BaseActivity {
         dismissUserDialog();
         viewModel.stop();
 
+        if (uiState != null) {
+            render(uiState);
+        }
+
+        PushRegistrationManager push =
+                PushRegistrationManager.getInstance(this);
+
+        PushRegistrationStore.Registration registration =
+                push.clearLocalRegistration();
+
         logoutWorker.execute(() -> {
             try {
                 if (sameAccount()) {
-                    auth.logout();
+                    try {
+                        push.unregisterBeforeLogout(registration);
+                    } catch (IOException | RuntimeException exception) {
+                        Log.w(
+                                "ChatPush",
+                                "Notification cleanup failed; continuing logout.",
+                                exception
+                        );
+                    }
+
+                    if (sameAccount()) {
+                        auth.logout();
+                    }
                 }
             } catch (IOException | RuntimeException ignored) {
                 // AuthApi clears the cookie even if the request fails.

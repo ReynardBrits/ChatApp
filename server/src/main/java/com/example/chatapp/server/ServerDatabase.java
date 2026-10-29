@@ -111,6 +111,33 @@ public final class ServerDatabase {
             CHECK (last_read_message_id >= 0)
         )
         """);
+
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS push_installations (
+                        installation_id TEXT PRIMARY KEY NOT NULL,
+                        username TEXT NOT NULL,
+                        binding_id TEXT NOT NULL,
+                        updated_at INTEGER NOT NULL,
+
+                        FOREIGN KEY (username)
+                            REFERENCES users(username)
+                            ON DELETE RESTRICT,
+
+                        CHECK (
+                            length(installation_id) BETWEEN 1 AND 256
+                        ),
+                        CHECK (
+                            length(binding_id) BETWEEN 16 AND 128
+                        ),
+                        CHECK (updated_at >= 0)
+                    )
+                    """);
+
+            statement.executeUpdate("""
+                    CREATE INDEX IF NOT EXISTS
+                        idx_push_installations_username
+                    ON push_installations(username)
+                    """);
         }
     }
 }

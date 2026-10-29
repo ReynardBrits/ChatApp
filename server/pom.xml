@@ -27,6 +27,13 @@
             <version>${tomcat.version}</version>
         </dependency>
 
+        <!-- Firebase Admin SDK for sending push notifications -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.11.0</version>
+        </dependency>
+
         <!-- JSR-356 WebSocket server and client support -->
         <dependency>
             <groupId>org.apache.tomcat.embed</groupId>

@@ -23,6 +23,13 @@ public final class ChatHub {
     private final ConcurrentMap<String, Client> clients =
             new ConcurrentHashMap<>();
 
+    private volatile PushNotificationService pushNotifications;
+
+    public void setPushNotifications(
+            PushNotificationService pushNotifications
+    ) {
+        this.pushNotifications = pushNotifications;
+    }
     public boolean register(
             Session socket,
             HttpSession httpSession
@@ -104,6 +111,12 @@ public final class ChatHub {
             if (participant) {
                 client.enqueue(json);
             }
+        }
+
+        PushNotificationService notifications = pushNotifications;
+
+        if (notifications != null) {
+            notifications.notifyNewMessage(message);
         }
     }
 

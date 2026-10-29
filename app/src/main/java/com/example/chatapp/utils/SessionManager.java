@@ -2,11 +2,13 @@ package com.example.chatapp.utils;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.app.NotificationManager;
 
 import com.example.chatapp.database.User;
 import com.example.chatapp.network.ApiAccount;
 import com.example.chatapp.network.NetworkClient;
 import com.example.chatapp.network.ServerConfig;
+import com.example.chatapp.notifications.PushRegistrationStore;
 
 import okhttp3.HttpUrl;
 
@@ -15,8 +17,13 @@ public final class SessionManager {
     private static final String CURRENT_SERVER = "current_server_url";
 
     private final SharedPreferences preferences;
+    private final PushRegistrationStore pushRegistrations;
+    private final NotificationManager notificationManager;
 
     public SessionManager(Context context) {
+        notificationManager = context.getSystemService(NotificationManager.class);
+        pushRegistrations = new PushRegistrationStore(context);
+
         preferences = context.getApplicationContext()
                 .getSharedPreferences(
                         Constants.PREFERENCES_NAME,
@@ -25,6 +32,8 @@ public final class SessionManager {
     }
 
     public void saveSession(ApiAccount account) {
+        pushRegistrations.startSession(account);
+
         preferences.edit()
                 .putInt(Constants.CURRENT_USER_ID, account.getId())
                 .putString(
@@ -38,6 +47,8 @@ public final class SessionManager {
     // Retained while we replace the old local login code.
     @Deprecated
     public void saveSession(User user) {
+        pushRegistrations.clear();
+
         preferences.edit()
                 .putInt(Constants.CURRENT_USER_ID, user.getId())
                 .putString(Constants.CURRENT_USER, user.getUsername())
@@ -82,7 +93,11 @@ public final class SessionManager {
     }
 
     public void clearSession() {
-        NetworkClient.getInstance().clearSession();
+        pushRegistrations.clear();
+
+        if (notificationManager != null) {
+            notificationManager.cancelAll();
+        }
 
         preferences.edit()
                 .remove(Constants.CURRENT_USER_ID)

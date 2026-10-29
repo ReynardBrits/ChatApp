@@ -24,7 +24,11 @@ public final class ChatServer {
     public static void main(String[] args) throws Exception {
         ServerDatabase database = new ServerDatabase(Path.of("data"));
         PhotoStorage photos = new PhotoStorage(Path.of("data", "photos"));
+        PushNotificationService pushNotifications =
+                new PushNotificationService(database);
+
         ChatHub hub = new ChatHub();
+        hub.setPushNotifications(pushNotifications);
 
         Path runtimeDirectory = Path.of("target", "tomcat")
                 .toAbsolutePath();
@@ -138,6 +142,11 @@ public final class ChatServer {
                 "conversations"
         );
 
+        Tomcat.addServlet(context, "push", new PushInstallationsServlet())
+                .setLoadOnStartup(1);
+
+        context.addServletMappingDecoded("/api/push/*", "push");
+
         Wrapper pagesServlet = Tomcat.addServlet(
                 context,
                 "pages",
@@ -167,6 +176,7 @@ public final class ChatServer {
         }
 
         try {
+            FirebaseSetup.initialize();
             tomcat.start();
 
             if (!context.getState().isAvailable()
@@ -190,6 +200,8 @@ public final class ChatServer {
                 startupFailure.addSuppressed(cleanupFailure);
             }
 
+            pushNotifications.close();
+            FirebaseSetup.close();
             throw startupFailure;
         }
 
@@ -199,6 +211,9 @@ public final class ChatServer {
                 tomcat.destroy();
             } catch (Exception exception) {
                 exception.printStackTrace();
+            } finally {
+                pushNotifications.close();
+                FirebaseSetup.close();
             }
         }, "chatapp-shutdown"));
 
