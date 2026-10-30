@@ -1,6 +1,5 @@
 package com.example.chatapp.network;
 
-import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 
@@ -12,7 +11,7 @@ public final class SessionCookieJar implements CookieJar {
 
     private static final String SESSION_COOKIE_NAME = "CHATAPPSESSION";
 
-    private final URI server = URI.create(ServerConfig.BASE_URL);
+    private final HttpUrl server = HttpUrl.get(ServerConfig.BASE_URL);
 
     private Cookie sessionCookie;
 
@@ -64,8 +63,8 @@ public final class SessionCookieJar implements CookieJar {
     }
 
     private boolean isOurServer(HttpUrl url) {
-        return server.getScheme().equalsIgnoreCase(url.scheme())
-                && server.getHost().equalsIgnoreCase(url.host())
-                && server.getPort() == url.port();
+        return server.scheme().equalsIgnoreCase(url.scheme())
+                && server.host().equalsIgnoreCase(url.host())
+                && server.port() == url.port();
     }
 }
