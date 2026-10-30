@@ -1,0 +1,10 @@
+target/
+data/
+.git/
+.idea/
+*.iml
+.env
+.env.*
+firebase-service-account.json
+**/*service-account*.json
+**/*firebase-adminsdk*.json

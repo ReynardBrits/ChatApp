@@ -17,13 +17,49 @@ import java.nio.file.Path;
 
 public final class ChatServer {
 
-    private static final int PORT = 8081;
+    private static final int PORT = readPort();
 
     private ChatServer() {}
 
+    private static int readPort() {
+        String value = System.getenv("PORT");
+
+        if (value == null || value.isBlank()) {
+            return 8081;
+        }
+
+        try {
+            int port = Integer.parseInt(value.trim());
+
+            if (port >= 1 && port <= 65535) {
+                return port;
+            }
+        } catch (NumberFormatException ignored) {
+            // Invalid settings are reported below.
+        }
+
+        throw new IllegalArgumentException(
+                "PORT must be a whole number from 1 to 65535."
+        );
+    }
+
+    private static Path readDataDirectory() {
+        String value = System.getenv("CHATAPP_DATA_DIR");
+
+        String directory = value == null || value.isBlank()
+                ? "data"
+                : value.trim();
+
+        return Path.of(directory).toAbsolutePath().normalize();
+    }
+
     public static void main(String[] args) throws Exception {
-        ServerDatabase database = new ServerDatabase(Path.of("data"));
-        PhotoStorage photos = new PhotoStorage(Path.of("data", "photos"));
+        Path dataDirectory = readDataDirectory();
+
+        ServerDatabase database = new ServerDatabase(dataDirectory);
+        PhotoStorage photos = new PhotoStorage(
+                dataDirectory.resolve("photos")
+        );
         PushNotificationService pushNotifications =
                 new PushNotificationService(database);
 
