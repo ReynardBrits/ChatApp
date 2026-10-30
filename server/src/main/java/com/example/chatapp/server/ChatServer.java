@@ -77,6 +77,14 @@ public final class ChatServer {
         tomcat.setPort(PORT);
         tomcat.getConnector();
 
+        if ("true".equalsIgnoreCase(
+                System.getenv("CHATAPP_HTTPS_PROXY")
+        )) {
+            tomcat.getConnector().setScheme("https");
+            tomcat.getConnector().setSecure(true);
+            tomcat.getConnector().setProxyPort(443);
+        }
+
         Context context = tomcat.addContext("", webRoot.toString());
 
         context.setParentClassLoader(
