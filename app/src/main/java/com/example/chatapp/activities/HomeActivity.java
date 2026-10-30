@@ -6,6 +6,7 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.util.Log;
+import androidx.annotation.NonNull;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -23,6 +24,8 @@ import com.example.chatapp.utils.SessionManager;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.example.chatapp.notifications.PushRegistrationManager;
+import com.example.chatapp.notifications.PushRegistrationStore;
+import com.example.chatapp.notifications.MessageNotifications;
 import com.example.chatapp.notifications.PushRegistrationStore;
 
 import java.io.IOException;
@@ -143,6 +146,60 @@ public class HomeActivity extends BaseActivity {
         FirebaseMessaging.getInstance().register()
                 .addOnFailureListener(error ->
                         Log.w("ChatPush", "Firebase registration failed.", error));
+
+        openNotificationConversation(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(@NonNull Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        openNotificationConversation(intent);
+    }
+
+    private void openNotificationConversation(Intent intent) {
+        if (intent == null
+                || !MessageNotifications.ACTION_OPEN_CONVERSATION.equals(
+                intent.getAction())) {
+            return;
+        }
+
+        String account = intent.getStringExtra(
+                MessageNotifications.EXTRA_ACCOUNT);
+        String binding = intent.getStringExtra(
+                MessageNotifications.EXTRA_BINDING);
+        String sender = intent.getStringExtra(
+                MessageNotifications.EXTRA_SENDER);
+
+        // Consume this tap so rotation does not reopen the conversation.
+        intent.setAction(null);
+        intent.setData(null);
+        intent.removeExtra(MessageNotifications.EXTRA_ACCOUNT);
+        intent.removeExtra(MessageNotifications.EXTRA_BINDING);
+        intent.removeExtra(MessageNotifications.EXTRA_SENDER);
+
+        if (!checkSession()
+                || sender == null
+                || !sender.matches("[a-z0-9_]{3,24}")
+                || sender.equals(currentAccount.getUsername())) {
+            return;
+        }
+
+        PushRegistrationStore.Registration registration =
+                new PushRegistrationStore(this).getCurrent();
+
+        if (registration == null
+                || registration.getAccount().getId() != currentAccount.getId()
+                || !currentAccount.getUsername().equals(account)
+                || !registration.getAccount().getUsername().equals(account)
+                || !registration.getBindingId().equals(binding)) {
+            return;
+        }
+
+        Intent conversation = new Intent(this, ConversationActivity.class);
+        conversation.putExtra(Constants.EXTRA_RECEIVER, sender);
+        conversation.putExtra(Constants.EXTRA_OPEN_CAMERA, false);
+        startActivity(conversation);
     }
 
     @Override

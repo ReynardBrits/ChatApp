@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.net.Uri;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -22,6 +23,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 public final class MessageNotifications {
+
+    public static final String ACTION_OPEN_CONVERSATION =
+            "com.example.chatapp.OPEN_CONVERSATION";
+
+    public static final String EXTRA_ACCOUNT = "notification_account";
+    public static final String EXTRA_BINDING = "notification_binding";
+    public static final String EXTRA_SENDER = "notification_sender";
 
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
@@ -90,8 +98,26 @@ public final class MessageNotifications {
         }
 
         Intent openHome = new Intent(context, HomeActivity.class);
+        openHome.setAction(ACTION_OPEN_CONVERSATION);
+
+        openHome.setData(new Uri.Builder()
+                .scheme("chatapp")
+                .authority("notification")
+                .appendPath(registration.getBindingId())
+                .appendPath(sender)
+                .build());
+
+        openHome.putExtra(
+                EXTRA_ACCOUNT,
+                registration.getAccount().getUsername()
+        );
+        openHome.putExtra(EXTRA_BINDING, registration.getBindingId());
+        openHome.putExtra(EXTRA_SENDER, sender);
+
         openHome.addFlags(
-                Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
         );
 
         PendingIntent openApp = PendingIntent.getActivity(
