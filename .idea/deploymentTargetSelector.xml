@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-10-30T16:55:31.706142Z">
+        <DropdownSelection timestamp="2026-11-13T10:13:02.373186300Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\reyna\.android\avd\ChatPhone_2.avd" />
