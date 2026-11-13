@@ -93,11 +93,3 @@ Android Room databases cache conversation data separately for each account.
 
 Restarting the server or the Android app process requires signing in again.
 Registered accounts, messages, and uploaded photos remain in server storage.
-
-## Current limitations
-
-This setup uses a local development server and the Android debug build.
-The server must remain running for communication between devices.
-
-Delivery between emulators can sometimes be delayed. Performance
-optimization is pending.
