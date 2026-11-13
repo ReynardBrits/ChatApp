@@ -182,7 +182,3 @@ HTTP requests are used for actions such as registration, login and loading data.
 
 When the server is started locally using the commands above, its database and uploaded photos are stored under `server/data/`.
 
-=======
-Restarting the server or the Android app process requires signing in again.
-Registered accounts, messages, and uploaded photos remain in server storage.
->>>>>>> a86041f4e5354296f427c997052e43ac5047c5a6
