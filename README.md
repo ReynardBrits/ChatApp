@@ -182,10 +182,6 @@ HTTP requests are used for actions such as registration, login and loading data.
 
 When the server is started locally using the commands above, its database and uploaded photos are stored under `server/data/`.
 
-<<<<<<< HEAD
-On a hosted server, the `CHATAPP_DATA_DIR` environment variable can select a different storage directory.
-
-Android keeps its Room cache separate for each server and account. After a server restart, users may need to log in again. Accounts and conversation history remain available as long as the server's stored data is retained.
 =======
 Restarting the server or the Android app process requires signing in again.
 Registered accounts, messages, and uploaded photos remain in server storage.
